@@ -33,6 +33,12 @@
 
 在支持 skills 的 Codex 环境中引用本目录即可。主入口是 `SKILL.md`。
 
+最短阅读顺序：
+
+- 首次上手先看 `SKILL.md` 里的“首轮 5 问”“启动模板”“执行模式分层”。
+- 命中特定实现细节时再读 `references/codex-console-lessons.md`。
+- 涉及录制、重放、隔离环境或证据工件管理时再读 `references/security-lab-lessons.md`。
+
 典型请求示例：
 
 - “使用这个 skill 排查为什么资源创建成功但 token 没拿到。”
