@@ -32,6 +32,27 @@ description: For authorized browser-protocol interoperability testing and statef
 - 成功优先判定：一旦 Step 12 的物理创建动作已经被服务端确认成功，立即把该动作视为已提交，后续只做收尾、取证和幂等保护，不再回滚猜测。
 - 多段 JWT 自动探测解析：自动从响应头、正文、URL、片段、Cookie、302 Location 中提取候选令牌，解析声明但不信任未验证内容。
 
+## 三分模型
+
+把这类任务拆成三个层面，不要混在一起推理：
+
+- 协议逻辑
+  - 关注授权流程、公理、不变量和状态迁移。
+  - 例子：`state`/`code_verifier` 是否匹配，callback 是否属于当前轮，创建成功后是否还需要补 token。
+- 传输实现
+  - 关注具体执行器如何发送请求和保持上下文。
+  - 例子：`curl_cffi` session、浏览器 profile、HTTP 版本、cookie jar、代理、重定向处理。
+- 观测器
+  - 关注你依据什么判断事实成立。
+  - 例子：原始请求三元组、302 链、日志、抓包、真实浏览器基线、mitmproxy 记录。
+
+执行规则：
+
+- 协议逻辑是控制器，传输实现是执行器，观测器是传感器。
+- 如果问题出在协议逻辑，不要只调浏览器指纹或 HTTP 参数。
+- 如果问题出在传输实现，不要误以为协议状态机本身错了。
+- 如果事实不清，优先补观测器，再决定是否调整协议逻辑或传输实现。
+
 ## 参考导航
 
 - 只需要高层流程、边界和输出要求时，读本文件即可。
@@ -91,6 +112,25 @@ description: For authorized browser-protocol interoperability testing and statef
 
 如果这些字段里有任何一个只能从旧缓存拿到，而不是从当前响应或当前 cookie 拿到，显式标记为 `degraded_path=true`。
 
+### 来源证据链
+
+对每个关键字段，再额外记录“它是从哪里来的”，至少使用下面四类来源标签之一：
+
+- `current_response`
+  - 来自当前请求的响应体、响应头或 `Location`
+- `current_cookie`
+  - 来自当前轮 cookie jar 或当前轮请求上下文
+- `current_callback`
+  - 来自当前轮 callback URL 的 query 或 fragment
+- `cached_fallback`
+  - 来自旧缓存、旧日志、旧文本或上一轮链路残留
+
+执行规则：
+
+- 只要关键字段的来源是 `cached_fallback`，默认把该字段视为降级恢复，不视为强一致性证据。
+- 如果 callback、continue URL、workspace、session token 中任一关键字段只能由 `cached_fallback` 提供，显式记录“跨轮污染风险”。
+- 做根因判断时，优先比较“字段值是否一致”，再比较“字段来源是否一致”；值对但来源错，仍然不能判主链健康。
+
 ## 实现准则
 
 ### 传输层模拟
@@ -120,6 +160,24 @@ description: For authorized browser-protocol interoperability testing and statef
 - 任一步骤若需要新建 session，必须视为异常而不是正常分支。
 - 任何重试都应从最近一个可恢复检查点继续，而不是丢失前态重新猜测。
 - 所有副作用步骤都要带幂等键或可重复识别键。
+
+### 每轮授权请求唯一性规则
+
+把下面这些对象视为“当前轮授权上下文”的一组绑定材料：
+
+- 当前轮 `auth_url`
+- 当前轮 `state`
+- 当前轮 `code_verifier`
+- 当前轮挑战工件
+- 当前轮 cookie jar
+- 当前轮 callback URL
+
+硬规则：
+
+- 每次进入新的授权请求，都要生成新的 `state` 和 `code_verifier`。
+- 任何 challenge 工件只能服务当前轮请求，不能跨轮复用。
+- callback 只能由当前轮 `state` / `code_verifier` 解释；如果只能被上一轮解释，直接判为污染或降级。
+- 只要当前轮链路主要依赖上一轮缓存继续推进，显式标记 `degraded_path=true`。
 
 ### 绑定判定表
 
