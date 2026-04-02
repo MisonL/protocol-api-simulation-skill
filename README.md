@@ -42,7 +42,7 @@
 可用 `skill-creator` 自带校验脚本做结构检查：
 
 ```bash
-uv run --with pyyaml python /Users/mison/.codex/skills/.system/skill-creator/scripts/quick_validate.py /Volumes/Work/code/protocol-api-simulation-skill
+uv run --with pyyaml python <path-to-skill-creator>/scripts/quick_validate.py .
 ```
 
 当前仓库已经通过该校验。

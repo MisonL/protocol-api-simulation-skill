@@ -12,9 +12,9 @@
 
 `codex-console` 把 Sentinel 当作真实门槛，而不是固定占位参数。
 
-- 参考实现：[sentinel.py](/Volumes/Work/code/codex-console/src/core/openai/sentinel.py)
-- 请求发送点：[http_client.py](/Volumes/Work/code/codex-console/src/core/http_client.py)
-- 回归测试：[test_registration_engine.py](/Volumes/Work/code/codex-console/tests/test_registration_engine.py)
+- 参考实现：<https://github.com/dou-jiang/codex-console/blob/main/src/core/openai/sentinel.py>
+- 请求发送点：<https://github.com/dou-jiang/codex-console/blob/main/src/core/http_client.py>
+- 回归测试：<https://github.com/dou-jiang/codex-console/blob/main/tests/test_registration_engine.py>
 
 可迁移经验：
 
@@ -26,9 +26,9 @@
 
 `codex-console` 的注册链路明确覆盖“先注册成功，再重登拿 token”的情况。
 
-- 参考实现：[register.py](/Volumes/Work/code/codex-console/src/core/register.py)
-- OAuth 处理：[oauth.py](/Volumes/Work/code/codex-console/src/core/openai/oauth.py)
-- 回归测试：[test_registration_engine.py](/Volumes/Work/code/codex-console/tests/test_registration_engine.py)
+- 参考实现：<https://github.com/dou-jiang/codex-console/blob/main/src/core/register.py>
+- OAuth 处理：<https://github.com/dou-jiang/codex-console/blob/main/src/core/openai/oauth.py>
+- 回归测试：<https://github.com/dou-jiang/codex-console/blob/main/tests/test_registration_engine.py>
 
 可迁移经验：
 
@@ -40,8 +40,8 @@
 
 `codex-console` 的测试显式防止重复发送 OTP，并记录 OTP 发送时刻。
 
-- 自动发送与重登分支测试：[test_registration_engine.py](/Volumes/Work/code/codex-console/tests/test_registration_engine.py)
-- 主流程状态记录：[register.py](/Volumes/Work/code/codex-console/src/core/register.py)
+- 自动发送与重登分支测试：<https://github.com/dou-jiang/codex-console/blob/main/tests/test_registration_engine.py>
+- 主流程状态记录：<https://github.com/dou-jiang/codex-console/blob/main/src/core/register.py>
 
 可迁移经验：
 
@@ -53,8 +53,8 @@
 
 `codex-console` 没有假设这些值只会在一个位置出现。
 
-- continue/workspace 缓存与回退：[register.py](/Volumes/Work/code/codex-console/src/core/register.py)
-- cookie 中 workspace/session 提取：[register.py](/Volumes/Work/code/codex-console/src/core/register.py)
+- continue/workspace 缓存与回退：<https://github.com/dou-jiang/codex-console/blob/main/src/core/register.py>
+- cookie 中 workspace/session 提取：<https://github.com/dou-jiang/codex-console/blob/main/src/core/register.py>
 
 可迁移经验：
 
@@ -66,7 +66,7 @@
 
 `oauth.py` 对 callback URL 做了较强的兼容解析。
 
-- 参考实现：[oauth.py](/Volumes/Work/code/codex-console/src/core/openai/oauth.py)
+- 参考实现：<https://github.com/dou-jiang/codex-console/blob/main/src/core/openai/oauth.py>
 
 可迁移经验：
 
