@@ -1,44 +1,43 @@
-# Repository Guidelines
+# 仓库指南
 
-## Project Structure & Module Organization
+## 项目结构与模块组织
 
-This repository is a lightweight skill package centered on `SKILL.md`. That file defines the skill metadata, scope, safety boundaries, workflow steps, and expected outputs for protocol-level browser/API simulation work. Reference material lives in `references/`, which currently contains product-specific lessons in `references/codex-console-lessons.md` and generic lab/observability patterns in `references/security-lab-lessons.md`. There is currently no `src/`, `tests/`, or asset directory; keep repository changes focused on Markdown documentation unless the structure is intentionally expanded.
+本仓库是一个轻量级 skill 包，核心文件是 `SKILL.md`。该文件定义 skill 元数据、适用范围、安全边界、执行流程和输出要求。参考资料位于 `references/`，当前包含两类内容：`references/codex-console-lessons.md` 用于沉淀具体产品经验，`references/security-lab-lessons.md` 用于沉淀通用实验环境、观测与重放模式。仓库目前没有 `src/`、`tests/` 或资源目录，除非明确扩展结构，否则变更应聚焦 Markdown 文档。
 
-## Build, Test, and Development Commands
+## 构建、验证与开发命令
 
-There is no local build system in this repository. Use lightweight documentation checks while editing:
+本仓库没有传统构建流程，日常维护以文档检查为主：
 
-- `sed -n '1,120p' SKILL.md` — inspect the current skill definition.
-- `sed -n '1,120p' references/security-lab-lessons.md` — review the generic lab-pattern reference in isolation.
-- `wc -w AGENTS.md SKILL.md` — confirm document size stays concise.
-- `rg -n '^## ' SKILL.md AGENTS.md` — verify heading structure.
-- `rg -n '/Users/|/Volumes/' README.md SKILL.md references/*.md AGENTS.md` — catch machine-local paths before committing.
-- `git diff --check` — catch whitespace and patch-format issues in Markdown edits.
-- `uv run --with pyyaml python <path-to-skill-creator>/scripts/quick_validate.py .` — validate skill frontmatter and naming rules.
+- `sed -n '1,120p' SKILL.md`：快速查看主 skill 定义。
+- `sed -n '1,120p' references/security-lab-lessons.md`：单独复查通用实验参考。
+- `wc -w AGENTS.md SKILL.md`：控制文档规模，避免无谓膨胀。
+- `rg -n '^## ' SKILL.md AGENTS.md`：检查标题结构是否清晰。
+- `rg -n '/Users/|/Volumes/' README.md SKILL.md references/*.md AGENTS.md`：提交前排查本机路径泄漏。
+- `git diff --check`：检查空白符和补丁格式问题。
+- `uv run --with pyyaml python <path-to-skill-creator>/scripts/quick_validate.py .`：校验 skill frontmatter 与命名规则。
 
-If you add tooling later, document the exact command here instead of relying on implicit conventions.
+如果后续新增脚本或工具链，必须把准确命令补充到本节，不要依赖隐含约定。
 
-## Coding Style & Naming Conventions
+## 编写风格与命名约定
 
-Write documentation in clear Markdown with short sections and direct instructions. Use `#`, `##`, and flat bullet lists; avoid decorative Unicode symbols and unnecessary prose. Keep filenames uppercase for top-level contributor docs (`AGENTS.md`, `SKILL.md`). When adding new repository files, prefer descriptive names such as `examples/redirect-trace.md` or `docs/state-machine-notes.md`.
+文档统一使用中文，表达要直接、简洁、可执行。使用标准 Markdown 标题和单层列表，避免装饰性 Unicode 符号和冗长解释。顶层贡献者文档保持大写命名，例如 `AGENTS.md`、`SKILL.md`。新增文件时优先使用描述性名称，例如 `docs/redirect-trace-notes.md` 或 `references/oauth-state-cases.md`。
 
-## Testing Guidelines
+## 验证要求
 
-Validation is documentation-focused. Before submitting changes:
+本仓库的验证以文档一致性为主。提交前至少确认：
 
-- Check headings and list structure render cleanly.
-- Confirm `README.md`, `AGENTS.md`, and `SKILL.md` describe the same current repository shape.
-- Confirm examples match the repository purpose: authorized protocol testing, session consistency, PKCE, redirect tracing, and risk-control boundaries.
-- Re-read for contradictions between contributor guidance and `SKILL.md`.
-- Re-read `references/` links and filenames after renames or structural edits.
-- Run the `quick_validate.py` command above after substantial skill edits.
+- 标题、列表和表格渲染正常。
+- `README.md`、`AGENTS.md` 与 `SKILL.md` 对仓库现状的描述一致。
+- 示例和约束仍然围绕“已授权协议测试、会话一致性、PKCE、跳转追踪、风控边界”。
+- `references/` 下的文件名、链接和用途说明在结构调整后仍然正确。
+- 对 `SKILL.md` 做了实质修改时，重新运行 `quick_validate.py`。
 
-If executable examples or scripts are introduced later, add a matching `tests/` directory and document how to run those checks here.
+如果未来引入脚本或可执行示例，再新增对应的 `tests/` 目录，并在本文件中写清如何运行。
 
-## Commit & Pull Request Guidelines
+## 提交与合并请求规范
 
-Current history uses short, single-purpose commit subjects such as `docs: add protocol-api-simulation skill`, `docs: add security lab reference patterns`, and `docs: refine protocol skill workflow`. Keep commits scoped to one documentation change and use a brief imperative summary. Pull requests should describe the guidance change, list the validation commands you ran, and call out whether the change affects the main `SKILL.md`, repository docs, or only reference material.
+当前提交历史采用短小、单一职责的说明，例如 `docs: add protocol-api-simulation skill`、`docs: add security lab reference patterns`、`docs: refresh repository documentation`。提交应只覆盖一类文档变化，并使用简短的祈使句摘要。合并请求需要说明本次修改了什么指导内容、运行了哪些校验命令，以及影响范围是主 `SKILL.md`、仓库说明文档，还是仅参考资料。
 
-## Security & Scope Notes
+## 安全与范围说明
 
-Do not add guidance that enables bypassing CAPTCHA, anti-abuse controls, MFA, device binding, or unauthorized token capture. All repository content must stay aligned with the explicit authorization and safety limits defined in `SKILL.md`.
+严禁在仓库中加入任何绕过验证码、反滥用控制、MFA、设备绑定或未授权令牌获取的指导。所有内容都必须与 `SKILL.md` 中声明的授权前提和安全边界保持一致。
