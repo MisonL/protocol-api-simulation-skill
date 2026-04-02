@@ -13,6 +13,8 @@
 - `AGENTS.md`
   - 本仓库的执行约束与协作要求。
 
+当前仓库是文档型 skill 仓库，没有 `src/`、`tests/` 或独立脚本目录；主要内容集中在主 skill 和按需加载的参考资料。
+
 ## 这个 skill 解决什么问题
 
 适用场景：
@@ -45,6 +47,12 @@
 - “使用这个 skill 审计这条 OAuth 302 跳转链是否保持强 session 一致性。”
 - “使用这个 skill 复现邮箱 OTP 链路，并判断是否发生重复发码污染。”
 
+## 当前内容重点
+
+- 主 skill 已包含首轮起手问题、16 步闭环、最小证据包、执行模式分层和输出骨架。
+- 参考资料当前分为两类：具体产品经验（`codex-console-lessons.md`）与通用安全实验/观测模式（`security-lab-lessons.md`）。
+- 仓库当前以 Markdown 维护为主；如后续新增脚本或示例，应同步更新 `AGENTS.md` 与本 README。
+
 ## 验证
 
 可用 `skill-creator` 自带校验脚本做结构检查：
@@ -54,6 +62,11 @@ uv run --with pyyaml python <path-to-skill-creator>/scripts/quick_validate.py .
 ```
 
 当前仓库已经通过该校验。
+
+建议在文档更新后额外做两类轻量检查：
+
+- `git diff --check`
+- `rg -n '/Users/|/Volumes/' README.md SKILL.md references/*.md AGENTS.md`
 
 ## 安全边界
 
