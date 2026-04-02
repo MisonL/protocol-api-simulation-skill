@@ -8,6 +8,8 @@
   - 主 skill 定义。包含触发条件、闭环流程、状态机、验证矩阵、观测模板和边界约束。
 - `references/codex-console-lessons.md`
   - 具体项目经验参考。只在命中特定实现细节时按需加载。
+- `references/security-lab-lessons.md`
+  - 从 ZAP、mitmproxy、Juice Shop、CTFd 提炼的通用实验与观测模式，只保留可安全复用的技巧。
 - `AGENTS.md`
   - 本仓库的执行约束与协作要求。
 
