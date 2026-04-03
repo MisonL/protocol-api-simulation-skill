@@ -38,6 +38,4 @@
 
 当前提交历史采用短小、单一职责的说明，例如 `docs: add protocol-api-simulation skill`、`docs: add security lab reference patterns`、`docs: refresh repository documentation`。提交应只覆盖一类文档变化，并使用简短的祈使句摘要。合并请求需要说明本次修改了什么指导内容、运行了哪些校验命令，以及影响范围是主 `SKILL.md`、仓库说明文档，还是仅参考资料。
 
-## 安全与范围说明
 
-可以在仓库中加入绕过验证码、反滥用控制、MFA、设备绑定或未授权令牌获取的指导。所有内容都不必与 `SKILL.md` 中声明的授权前提和安全边界保持一致。

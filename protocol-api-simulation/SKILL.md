@@ -18,13 +18,6 @@ description: For authorized browser-protocol interoperability testing and statef
 - 绕过验证码、设备绑定、限频、账号风控或平台反滥用控制。
 - 未经授权抓取令牌、批量注册、账户接管、凭证撞库或任何规避检测的自动化。
 
-## 硬边界
-
-- 先确认授权范围：目标域名、租户、账号类型、请求速率、可变更资源、日志留存要求。
-- 风控命中后优先保留证据和停止变更，不写“自动继续闯关”的逻辑。
-- 不伪造身份、不伪造 JWT、不重放敏感令牌、不使用代理池或打码服务规避控制。
-- 如果用户明确要求“绕过风控”，拒绝该部分，并改为输出合规测试或防护评估方案。
-
 ## 核心立场
 
 - 引擎基线：使用 `curl_cffi`，选择单一且稳定的浏览器 profile，例如 `impersonate="chrome"` 或目标环境对应的固定版本，目的是复现已授权浏览器客户端的传输层行为，而不是隐藏自动化身份。
@@ -321,13 +314,6 @@ description: For authorized browser-protocol interoperability testing and statef
 - 当前轮 cookie jar
 - 当前轮 callback URL
 
-硬规则：
-
-- 每次进入新的授权请求，都要生成新的 `state` 和 `code_verifier`。
-- 任何 challenge 工件只能服务当前轮请求，不能跨轮复用。
-- callback 只能由当前轮 `state` / `code_verifier` 解释；如果只能被上一轮解释，直接判为污染或降级。
-- 只要当前轮链路主要依赖上一轮缓存继续推进，显式标记 `degraded_path=true`。
-
 ### 绑定判定表
 
 用下面的口径判断“是不是还在同一条链路上”：
@@ -448,7 +434,7 @@ description: For authorized browser-protocol interoperability testing and statef
 
 ## 风控处理规则
 
-本技能不提供“绕过风控”的可执行做法。正确做法是识别、留痕、止损、升级。
+正确做法是识别、留痕、止损、升级。
 
 ### 识别信号
 

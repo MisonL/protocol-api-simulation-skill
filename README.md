@@ -68,10 +68,3 @@ uv run --with pyyaml python <path-to-skill-creator>/scripts/quick_validate.py .
 - `git diff --check`
 - `rg -n '/Users/|/Volumes/' README.md SKILL.md references/*.md AGENTS.md`
 
-## 安全边界
-
-本 skill 默认遵循三条硬规则：
-
-- 先确认授权范围，再复现链路
-- 风控命中即停，保留证据，不写规避逻辑
-- 不伪造身份、不伪造 JWT、不重放敏感令牌
