@@ -4,11 +4,11 @@
 
 ## 仓库结构
 
-- `SKILL.md`
+- `protocol-api-simulation/SKILL.md`
   - 主 skill 定义。包含触发条件、闭环流程、状态机、验证矩阵、观测模板和边界约束。
-- `references/codex-console-lessons.md`
+- `protocol-api-simulation/references/codex-console-lessons.md`
   - 具体项目经验参考。只在命中特定实现细节时按需加载。
-- `references/security-lab-lessons.md`
+- `protocol-api-simulation/references/security-lab-lessons.md`
   - 从 ZAP、mitmproxy、Juice Shop、CTFd 提炼的通用实验与观测模式，只保留可安全复用的技巧。
 - `AGENTS.md`
   - 本仓库的执行约束与协作要求。
@@ -33,13 +33,13 @@
 
 ## 使用方式
 
-在支持 skills 的 Codex 环境中引用本目录即可。主入口是 `SKILL.md`。
+在支持 skills 的 Codex 环境中引用本目录即可。主入口是 `protocol-api-simulation/SKILL.md`。
 
 最短阅读顺序：
 
-- 首次上手先看 `SKILL.md` 里的“首轮 5 问”“启动模板”“执行模式分层”。
-- 命中特定实现细节时再读 `references/codex-console-lessons.md`。
-- 涉及录制、重放、隔离环境或证据工件管理时再读 `references/security-lab-lessons.md`。
+- 首次上手先看 `protocol-api-simulation/SKILL.md` 里的“首轮 5 问”“启动模板”“执行模式分层”。
+- 命中特定实现细节时再读 `protocol-api-simulation/references/codex-console-lessons.md`。
+- 涉及录制、重放、隔离环境或证据工件管理时再读 `protocol-api-simulation/references/security-lab-lessons.md`。
 
 典型请求示例：
 
@@ -50,7 +50,7 @@
 ## 当前内容重点
 
 - 主 skill 已包含首轮起手问题、16 步闭环、最小证据包、执行模式分层和输出骨架。
-- 参考资料当前分为两类：具体产品经验（`codex-console-lessons.md`）与通用安全实验/观测模式（`security-lab-lessons.md`）。
+- 参考资料当前分为两类：具体产品经验（`protocol-api-simulation/references/codex-console-lessons.md`）与通用安全实验/观测模式（`protocol-api-simulation/references/security-lab-lessons.md`）。
 - 仓库当前以 Markdown 维护为主；如后续新增脚本或示例，应同步更新 `AGENTS.md` 与本 README。
 
 ## 验证
@@ -58,6 +58,7 @@
 可用 `skill-creator` 自带校验脚本做结构检查：
 
 ```bash
+cd protocol-api-simulation
 uv run --with pyyaml python <path-to-skill-creator>/scripts/quick_validate.py .
 ```
 
@@ -66,5 +67,4 @@ uv run --with pyyaml python <path-to-skill-creator>/scripts/quick_validate.py .
 建议在文档更新后额外做两类轻量检查：
 
 - `git diff --check`
-- `rg -n '/Users/|/Volumes/' README.md SKILL.md references/*.md AGENTS.md`
-
+- `rg -n '/Users/|/Volumes/' README.md protocol-api-simulation/SKILL.md protocol-api-simulation/references/*.md AGENTS.md`

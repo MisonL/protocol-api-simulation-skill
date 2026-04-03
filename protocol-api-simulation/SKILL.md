@@ -76,6 +76,44 @@ description: For authorized browser-protocol interoperability testing and statef
 
 如果前 3 问里有任一项答不上来，默认不要进入 `mutating_run`。
 
+## Control Contract
+
+在真正续跑前，先用下面 5 行写清本轮控制合同：
+
+- `primary_setpoint`
+  - 本轮最主要的目标变量，例如“证明 callback 是否属于当前轮，并且不引入新增副作用”。
+- `acceptance`
+  - 哪些证据能证明目标达成，例如当前轮 callback、302 链、cookie 演进、token exchange 结果。
+- `guardrail`
+  - 哪些护栏不能被打破，例如授权范围、单用户限制、不可复位环境、共享实例边界。
+- `rollback_trigger`
+  - 一旦出现什么信号就停止推进，例如 `source_conflict=true`、callback 冲突、风控页、只能依赖 `cached_fallback`。
+- `boundary`
+  - 本轮允许触碰的动作边界，例如只允许 `observe_only`，或只允许当前轮无副作用重放。
+
+要求：
+
+- `primary_setpoint` 只能有一个，避免一轮里同时追“拿 token”“确认 session 归属”“补全浏览器对照”三个目标。
+- `guardrail` 和 `boundary` 先于“想不想跑通”，一旦冲突，默认保守处理。
+- 没写这 5 行时，不进入 `mutating_run`。
+
+### 只读核验模板
+
+如果用户明确要求“只做被动确认”“只读核验”“只做留证”，直接复用下面模板：
+
+```text
+primary_setpoint: 仅确认当前轮事实是否成立，不引入任何重放或副作用
+acceptance: 当前轮 callback / 302 / cookie / challenge 来源能够自洽，不依赖 cached_fallback
+guardrail: 不做 resend，不做 create/update/delete，不跨轮补造关键绑定材料
+rollback_trigger: source_conflict=true、callback 冲突、关键字段只能由 cached_fallback 解释、风控阻断
+boundary: 固定 observe_only
+```
+
+执行规则：
+
+- 这种场景下不要把 `replay_only` 当成“只读”的近似替代；文义上写了只读，就固定停在 `observe_only`。
+- 输出里显式写明“本轮目标是核验，不是推进”。
+
 ### 首次使用最短路径
 
 首次上手时，默认按下面 4 步进入，而不是先通读全文件：
@@ -115,7 +153,8 @@ description: For authorized browser-protocol interoperability testing and statef
 说明：
 
 - 在 OAuth 或 OIDC 续跑场景里，Step 12 可能表示“授权会话已提交”而不是“新资源已创建”。
-- 进入 Step 12 之后，可以继续做 token 收尾、证据补齐和幂等确认，也可以回到会再次触发创建或注册的上游步骤。
+- 进入 Step 12 之后，可以继续做 token 收尾、证据补齐和幂等确认，但默认不回到会再次触发创建或注册的上游步骤。
+- 如果需要重新触发创建、注册或发码，视为新一轮链路，先封存旧轮证据，再重新开始。
 
 ## 启动模板
 
@@ -155,6 +194,39 @@ description: For authorized browser-protocol interoperability testing and statef
 - `continue_url`、`workspace`、`session_token` 优先从当前响应和当前 cookie 获取，其次看当前轮 302 `Location` 或 callback，最后才允许 `cached_fallback`。
 - `state` 和 `code_verifier` 只能来自当前轮生成材料，不能从缓存恢复。
 
+#### 采样计划表
+
+开始前至少补下面 4 列，不要只写“我会看日志”：
+
+| 观测对象 | 主采样点 | 证据强度 | 是否允许驱动执行 |
+| --- | --- | --- | --- |
+| callback | `current_callback` / 当前轮 `Location` | 强 | 是 |
+| PKCE 材料 | 当前轮生成材料 | 强 | 是 |
+| cookie / session | `current_cookie` / `Set-Cookie` / 请求 cookie | 强 | 是 |
+| continue URL / workspace | `current_response` / `current_cookie` / `current_callback` | 中 | 是 |
+| 邮件 / OTP | 当前轮到件、关联键、发送时间 | 中 | 仅用于续跑判定 |
+| 旧缓存 / 旧日志 | `cached_fallback` | 弱 | 否 |
+
+执行规则：
+
+- 强证据用于驱动执行与终态判断。
+- 中证据可用于辅助续跑，但不能覆盖强证据冲突。
+- 弱证据只用于诊断、对照和问题定位，不能单独驱动 token exchange 或模式升级。
+
+#### 常见断点映射表
+
+遇到下面几类高频场景时，优先用这张表落 `breakpoint`，不要临时发明状态名：
+
+| 真实场景 | 推荐 breakpoint | 说明 |
+| --- | --- | --- |
+| 首页预热、首批 cookie 刚建立 | `WARMUP` | 还没进入 challenge 或授权主链 |
+| challenge / 预检材料已拿到，但未提交身份 | `CHALLENGE_READY` | 可继续，但还没进入身份引导 |
+| OTP 已发出，等待邮件或外部验证 | `WAITING_MAIL` | 重点是时滞预算，不是重试 |
+| 邮件已解析，准备恢复授权链 | `MAIL_PARSED` / `FLOW_RESUMED` | 邮件内容已成为当前轮输入 |
+| 资源已创建，但还在补 callback 或 token | `RESOURCE_COMMITTED` 之后的 `RESUME_AUTH` / `WAIT_FOR_CALLBACK` | 不回到会重复创建的上游 |
+| callback 已到，但 state / PKCE / 来源冲突 | `WAIT_FOR_CALLBACK` + `BLOCKED` | 先阻断，不推进 exchange |
+| token exchange 完成，等待终态核验 | `TOKEN_EXCHANGED` | 重点转为来源核验与结论固化 |
+
 ### 来源证据链
 
 对每个关键字段，再额外记录“它是从哪里来的”，至少使用下面四类来源标签之一：
@@ -173,13 +245,29 @@ description: For authorized browser-protocol interoperability testing and statef
 - 只要关键字段的来源是 `cached_fallback`，默认把该字段视为降级恢复，不视为强一致性证据。
 - 如果 callback、continue URL、workspace、session token 中任一关键字段只能由 `cached_fallback` 提供，显式记录“跨轮污染风险”。
 - 做根因判断时，优先比较“字段值是否一致”，再比较“字段来源是否一致”；值对但来源错，仍然不能判主链健康。
-- `state` 和 `code_verifier` 可以从 `cached_fallback` 恢复；一旦发生，可以标记 `degraded_path=true` 并继续 token exchange。
+- `auth_url`、`state`、`code_verifier` 只能来自当前轮生成材料；旧缓存只能用于诊断，不得驱动 token exchange。
 - 如果 callback 只能由上一轮缓存或上一轮 OAuth 上下文解释，直接进入降级或阻断状态，不继续假定当前轮链路健康。
 - 对 `continue_url`、`workspace`、`session_token` 这类继续链路定位符，优先使用当前轮可验证来源；若多个当前轮来源互相冲突，停止推进并记录 `source_conflict=true`，不要静默择一。
 - 对注册/登录续跑场景，默认提取顺序是：`current_response` > `current_cookie` > `current_callback` > `cached_fallback`；若目标字段语义上只应出现在 callback，则单独说明该例外。
 - 只要 `degraded_path=true`，最终结论默认只能写弱结论，不宣称“强 session 一致性成功”。
-- 只要授权码、continue URL 或会话令牌依赖 `cached_fallback`，默认停止 token exchange，先补当前轮观测。
+- 只要授权码、continue URL、会话令牌或 PKCE 材料依赖 `cached_fallback`，默认停止 token exchange，先补当前轮观测。
 - 一旦记录 `source_conflict=true`，固定进入 `BLOCKED`，先固化最小证据包，再决定是否重新开一轮授权；不要继续 token exchange 或继续推进当前轮。
+
+#### 执行绑定材料决策表
+
+| 字段 | 允许作为执行依据的来源 | 是否允许 `cached_fallback` 驱动执行 | 缺失或冲突时的动作 |
+| --- | --- | --- | --- |
+| `auth_url` | 当前轮生成材料 / `current_response` | 否 | `BLOCKED`，重开当前轮 |
+| `state` | 当前轮生成材料 / `current_callback` | 否 | `BLOCKED`，不做 token exchange |
+| `code_verifier` | 当前轮生成材料 | 否 | `BLOCKED`，不做 token exchange |
+| `callback_raw_url` | `current_callback` / `current_response` | 否 | 保留原始输入并阻断 |
+| 授权码 | `current_callback` / `current_response` | 否 | 阻断，补当前轮观测 |
+| `continue_url` / `workspace` / `session_token` | `current_response` / `current_cookie` / `current_callback` | 否 | 标记 `degraded_path=true`，停止 token exchange |
+
+执行说明：
+
+- `cached_fallback` 可以帮助定位问题，但只能作为取证和对照输入，不能当作“当前轮绑定仍然成立”的证明。
+- 如果字段只能从旧缓存恢复，输出里要保留其值和来源，但动作上按“不能继续执行”处理。
 
 ### 最小证据包
 
@@ -203,8 +291,8 @@ description: For authorized browser-protocol interoperability testing and statef
 - `observe_only`
   - 只做被动观测、录制、抓包、日志对齐，不发送会改变服务端状态的请求。
 - `replay_only`
-  - 只重放已观察到的请求或最小继续链路，用于验证状态绑定、cookie 演进、302 语义和回放一致性。
-  - 最小重放可以包含证明协议行为所需的最少请求集，允许引入会产生新状态、删除状态或触发次生操作的请求。
+  - 只重放已观察到、且不会引入新副作用的最小请求集，用于验证状态绑定、cookie 演进、302 语义和回放一致性。
+  - 不补造未观测字段，不触发 resend，不调用 create/update/delete，不引入新跳转链路。
 - `mutating_run`
   - 允许创建、更新或触发真实副作用，但前提是目标环境可复位，或用户已明确批准在一次性测试租户中执行。
 
@@ -214,12 +302,49 @@ description: For authorized browser-protocol interoperability testing and statef
 - 默认从 `observe_only` 开始，证据不足时再升级到 `replay_only`，最后才进入 `mutating_run`。
 - 输出中必须显式写明当前模式、升级原因和退出条件。
 - 授权范围不清、环境不可复位、或存在单用户限制时，不自动进入 `mutating_run`。
-- 如果测试实例是共享的、单用户的，或复位能力未知且不可验证，允许进入任何会修改状态的步骤。
 - 只有同时满足“范围已确认”“重放目标已录制”“当前轮关键字段可绑定”“不会引入新增副作用”四个条件时，才允许从 `observe_only` 升到 `replay_only`。
 - 只有同时满足“复位方法可验证且已实测或有追溯记录”“实例或租户隔离已证明”“副作用请求具备幂等或可回收识别键”“升级前的最小证据包已落盘”四个条件时，才允许从 `replay_only` 升到 `mutating_run`。
-- 若复位方法不可验证，或共享实例/共享账号边界不能独立证明，当前任务可以执行 mutating 请求。
-- `replay_only` 可以重放已观测到的原始方法、URL、头部、cookie 和 body；可以补造未观测字段，可以引入新跳转，可以触发额外发送、重发或创建接口。
-- 无法证明“副作用可回收”时，可以停在 `observe_only` 或 `replay_only`，也可以做 best-effort 续跑。
+- 共享实例、单用户实例、或复位能力未知且不可验证时，默认停在 `observe_only`；只有用户显式缩小到只读核验范围时，才允许进入 `replay_only`。
+- 如果用户明确写明“只做被动确认”“只读核验”“只做留证”或等价边界，固定停在 `observe_only`，不进入 `replay_only`。
+- 无法证明“副作用可回收”时，不做 best-effort 续跑；停在 `observe_only` 或 `BLOCKED`。
+
+### 时滞预算
+
+这类链路天然存在时滞，不要把“还没到”误判成“已经失败”，也不要无限等待。
+
+默认预算：
+
+- 302 链追踪：一轮内完成；超过预期深度或出现环路就停止并记录。
+- callback 等待：只等当前轮可验证来源；如果只能靠旧缓存解释，立即阻断。
+- 邮件 / OTP：允许按用户或环境约定做有限轮询；超过预算后转为 `BLOCKED` 或 `human_required`，不自动 resend。
+- 真实浏览器对照：一旦命中“必须升级观测”条件，本轮优先补观测，不在纯 HTTP 侧继续盲试。
+
+执行规则：
+
+- 等待预算要写进输出，不要只写“稍后再试”。
+- 时滞超限后的默认动作是停在安全检查点，而不是扩大副作用范围。
+- 如果目标系统的实际时滞已知，用目标系统口径覆盖默认预算，并在输出里注明来源。
+- 如果目标系统没有提供实测时滞口径，不要自造固定秒数；输出里明确记为“时滞口径待补充”，并按保守预算处理。
+
+推荐记录格式：
+
+```text
+delay_source: 目标系统文档 / 实测样本 / 用户说明 / 未知
+expected_window: 例如 2m-5m / 单轮 302 内 / 当前轮 callback 即时返回
+checkpoints: 例如 30s / 60s / 120s / 300s
+timeout_action: BLOCKED / human_required / 升级观测 / 开新一轮
+```
+
+执行规则：
+
+- `checkpoints` 只用于观察，不自动绑定 resend 或模式升级。
+- 如果 `delay_source=未知`，默认不给“30 秒失败”这种硬判断。
+
+规则优先级：
+
+1. 用户显式边界高于其他一切规则。
+2. 安全与复位约束高于“想继续跑通”的诉求。
+3. 只要命中 `BLOCKED` 条件，就停止推进，不再用其他条目覆盖。
 
 模式切换闸门：
 
@@ -250,7 +375,7 @@ description: For authorized browser-protocol interoperability testing and statef
 示例：
 
 - 共享测试实例不等于可续跑；若账号、租户或复位边界不能独立证明，则默认按不可复位处理。
-- 不可复位环境允许 `mutating_run`。
+- 不可复位环境不允许 `mutating_run`。
 
 ### OTP 与重登卫生
 
@@ -259,7 +384,7 @@ description: For authorized browser-protocol interoperability testing and statef
 - 先判断服务端是否已经自动发信，再决定是否允许 resend；不要把 resend 当默认动作。
 - 记录 `otp_sent_at`、邮箱关联键、最近一次成功解析结果和对应会话标识。
 - 新一轮 OTP 或重登开始前，清理上一轮遗留的 continue URL、workspace、session token 摘要和邮件解析缓存。
-- 一旦进入 `RESOURCE_COMMITTED`，后续只允许收尾、重登补 token 或取证，允许回到会重复创建资源的上游状态。
+- 一旦进入 `RESOURCE_COMMITTED`，后续默认只允许收尾、重登补 token 或取证，不回到会重复创建资源的上游状态。
 
 自动发送判定顺序：
 
@@ -270,7 +395,8 @@ description: For authorized browser-protocol interoperability testing and statef
 
 执行规则：
 
-- 任一当前轮证据已经证明“已自动发送”时，可以再触发 resend。
+- 任一当前轮证据已经证明“已自动发送”时，不再自动触发 resend。
+- 只有用户明确批准、且 resend 不会污染当前轮绑定时，才把 resend 视为单独的 `mutating_run` 动作。
 - 只要 resend 会引入新的验证码、覆盖旧验证码或改变 continue URL，就把它视为副作用步骤，而不是普通重试。
 
 ## 实现准则
@@ -334,8 +460,8 @@ description: For authorized browser-protocol interoperability testing and statef
 ### Callback 判定规则
 
 - 如果 callback 同时包含 query 和 fragment，分别解析两侧的 `code`、`state`、`error`，不要只取一边。
-- 如果 query 与 fragment 给出的关键字段互相冲突，把该 callback 视为无效证据，进入 `BLOCKED` 或 `FAILED`，并保留原始输入。
-- 如果授权码存在，但当前轮 `state` 或 `code_verifier` 缺失、不匹配或只能由旧缓存解释，允许 token exchange，不进入收尾失败态。
+- 如果 query 与 fragment 给出的关键字段互相冲突，把该 callback 视为无效证据，进入 `BLOCKED`，并保留原始输入。
+- 如果授权码存在，但当前轮 `state` 或 `code_verifier` 缺失、不匹配或只能由旧缓存解释，停止 token exchange，进入 `BLOCKED`，并保留原始输入。
 - callback 只能证明“当前轮可继续”，不能自动证明“当前轮已健康闭环”；是否健康仍要看字段来源和会话绑定。
 
 ### 多段 JWT 自动探测解析
@@ -449,7 +575,7 @@ description: For authorized browser-protocol interoperability testing and statef
 - 请求目标系统提供正式测试入口、测试账号或文档化豁免。
 - 把阻断点写入证据链，并停止后续会修改资源的自动操作。
 
-### 允许的处置
+### 禁止的处置
 
 - 使用代理池、住宅 IP、设备农场或打码服务规避控制。
 - 伪造浏览器证明、篡改设备绑定材料、重放一次性验证码。
@@ -484,9 +610,10 @@ description: For authorized browser-protocol interoperability testing and statef
 - 每个状态只负责一个可验证目标。
 - 每个状态都定义进入条件、成功条件、失败分类、最大重试次数和检查点输出。
 - 瞬时失败和永久失败必须分开处理；需要人工接管时进入 `BLOCKED`。
-- `RESOURCE_COMMITTED` 是提交屏障。进入该状态后，允许回到会产生重复创建的上游状态。
+- `RESOURCE_COMMITTED` 是提交屏障。进入该状态后，默认只允许进入收尾、重登补 token、取证或人工复核等后续状态。
 - 邮件轮询必须可中断、可续跑、可超时，并保留最近一次成功解析结果。
-- 注册成功后若仍需重登或继续授权，应直接进入 `RESOURCE_COMMITTED` 之后的 `RESUME_AUTH`、`WAIT_FOR_CALLBACK` 或同类后续状态，允许回到任何会重复创建资源的上游状态。
+- 注册成功后若仍需重登或继续授权，应直接进入 `RESOURCE_COMMITTED` 之后的 `RESUME_AUTH`、`WAIT_FOR_CALLBACK` 或同类后续状态。
+- 如果确实需要重新触发注册、创建或发码，必须作为新一轮链路显式开启，不能从当前轮状态机直接倒回。
 - `16 步闭环` 是分析框架；这里的状态列表是实现状态机。不要把两者当作重复要求，而应保持一一映射关系。
 
 建议把失败分成三类：
@@ -497,7 +624,7 @@ description: For authorized browser-protocol interoperability testing and statef
 
 ## 最小输出要求
 
-最终输出至少覆盖下面这 10 行骨架，避免写成散文：
+最终输出至少覆盖下面这 11 行骨架，避免写成散文：
 
 - mode: `observe_only` / `replay_only` / `mutating_run`
 - mode_change_reason: 为什么保持、升级或降级到当前模式
@@ -507,7 +634,8 @@ description: For authorized browser-protocol interoperability testing and statef
 - degraded_path: `true` / `false`
 - reset_plan: 复位方法 / 不可复位
 - strongest_evidence: 当前最强证据来自哪里
-- root_cause_hypothesis: 协议逻辑 / 传输实现 / 观测缺失
+- root_cause_hypothesis: `protocol_logic` / `transport_impl` / `observer_gap` / `environment_blocked`
+- failure_class: `transient` / `permanent` / `human_required`
 - next_safe_action: 下一步最安全动作是什么
 
 ## 最小验证矩阵
@@ -518,10 +646,31 @@ description: For authorized browser-protocol interoperability testing and statef
 - callback 路径：确认 query、fragment、302 `Location` 三处都能提取授权码、状态或错误。
 - 会话路径：确认租户、工作区、会话令牌或同类关键标识可从 cookie、响应体或缓存检查点恢复，而不是仅依赖单一来源。
 
+## 标准反例
+
+下面这些不是“可讨论分支”，而是默认反例：
+
+- `callback` 的 query 与 fragment 给出冲突的 `state`
+  - 结论：`BLOCKED`
+  - 不做 token exchange，不靠旧缓存解释通。
+- 服务端已自动发 OTP，但邮件存在天然时滞
+  - 结论：按时滞预算等待，不自动 resend。
+  - 30 秒未到不是失败，只能算检查点。
+- 共享实例、单用户、复位未知，且用户要求只读核验
+  - 结论：固定 `observe_only`
+  - 不进入 `replay_only`，不做任何副作用动作。
+- `code_verifier`、`state`、`auth_url` 只能从旧缓存恢复
+  - 结论：旧缓存只做诊断，不驱动当前轮执行。
+  - 如需继续，开新一轮授权。
+- 已进入 `RESOURCE_COMMITTED`
+  - 结论：默认只允许收尾、补 token、取证、人工复核。
+  - 不回到会重复创建资源的上游步骤。
+
 ## 默认执行姿态
 
 - 先求证据，再求推进。
 - 先保 session 一致性，再谈重试。
 - Step 12 一旦成功即提交，不做侥幸回滚。
 - callback 如果只能由上一轮缓存解释，立即标记 `degraded_path=true` 并停止 token exchange。
+- `replay_only` 只做非副作用核验，不承担 resend、create、update、delete。
 - 风控命中即停，不把规避技巧写进实现。
